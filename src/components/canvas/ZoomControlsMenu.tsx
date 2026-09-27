@@ -9,6 +9,11 @@ import {
   Sliders,
   Check,
   MousePointer,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Compass,
 } from 'lucide-react';
 
 interface ZoomControlsMenuProps {
@@ -21,6 +26,7 @@ interface ZoomControlsMenuProps {
   onClose: () => void;
   wheelZoomMode: 'zoom' | 'pan';
   onToggleWheelMode: () => void;
+  onPanBy?: (dx: number, dy: number) => void;
 }
 
 export const ZoomControlsMenu: React.FC<ZoomControlsMenuProps> = ({
@@ -33,6 +39,7 @@ export const ZoomControlsMenu: React.FC<ZoomControlsMenuProps> = ({
   onClose,
   wheelZoomMode,
   onToggleWheelMode,
+  onPanBy,
 }) => {
   if (!isOpen) return null;
 
@@ -41,7 +48,7 @@ export const ZoomControlsMenu: React.FC<ZoomControlsMenuProps> = ({
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="absolute bottom-14 right-4 z-50 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 select-none animate-in fade-in slide-in-from-bottom-2 text-slate-800"
+      className="absolute bottom-14 right-4 z-50 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3.5 select-none animate-in fade-in slide-in-from-bottom-2 text-slate-800"
     >
       {/* Header with Slider */}
       <div className="pb-3 border-b border-slate-100">
@@ -65,6 +72,61 @@ export const ZoomControlsMenu: React.FC<ZoomControlsMenuProps> = ({
           className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
         />
       </div>
+
+      {/* Directional Pan Pad (Navegação 4 Direções) */}
+      {onPanBy && (
+        <div className="py-2.5 border-b border-slate-100">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
+            <Compass className="w-3 h-3 text-indigo-500" />
+            Mover / Navegar pelo Quadro
+          </span>
+          <div className="flex items-center justify-center">
+            <div className="grid grid-cols-3 gap-1 w-32">
+              <div />
+              <button
+                onClick={() => onPanBy(0, 150)}
+                className="p-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer active:scale-90"
+                title="Mover tela para Cima (Ver acima)"
+              >
+                <ArrowUp className="w-4 h-4" />
+              </button>
+              <div />
+
+              <button
+                onClick={() => onPanBy(150, 0)}
+                className="p-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer active:scale-90"
+                title="Mover tela para Esquerda"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onResetZoom}
+                className="p-1 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                title="Centralizar"
+              >
+                100%
+              </button>
+              <button
+                onClick={() => onPanBy(-150, 0)}
+                className="p-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer active:scale-90"
+                title="Mover tela para Direita"
+              >
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <div />
+              <button
+                onClick={() => onPanBy(0, -150)}
+                className="p-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer active:scale-90"
+                title="Mover tela para Baixo (Ver abaixo)"
+              >
+                <ArrowDown className="w-4 h-4" />
+              </button>
+              <div />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Presets Grid */}
       <div className="py-2.5 border-b border-slate-100">
@@ -100,7 +162,7 @@ export const ZoomControlsMenu: React.FC<ZoomControlsMenuProps> = ({
             onFitToContent();
             onClose();
           }}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors font-medium text-left"
+          className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors font-medium text-left cursor-pointer"
         >
           <span className="flex items-center gap-2">
             <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
@@ -116,7 +178,7 @@ export const ZoomControlsMenu: React.FC<ZoomControlsMenuProps> = ({
             onZoomToSelection();
             onClose();
           }}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors font-medium text-left"
+          className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors font-medium text-left cursor-pointer"
         >
           <span className="flex items-center gap-2">
             <Target className="w-3.5 h-3.5 text-slate-500" />
@@ -132,7 +194,7 @@ export const ZoomControlsMenu: React.FC<ZoomControlsMenuProps> = ({
             onResetZoom();
             onClose();
           }}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded-lg transition-colors font-medium text-left"
+          className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded-lg transition-colors font-medium text-left cursor-pointer"
         >
           <span className="flex items-center gap-2">
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
@@ -148,14 +210,14 @@ export const ZoomControlsMenu: React.FC<ZoomControlsMenuProps> = ({
       <div className="pt-2 border-t border-slate-100">
         <button
           onClick={onToggleWheelMode}
-          className="w-full flex items-center justify-between px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50 rounded-md"
+          className="w-full flex items-center justify-between px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50 rounded-md cursor-pointer"
         >
           <span className="flex items-center gap-1.5">
             <MousePointer className="w-3 h-3 text-slate-400" />
             Roda do mouse:
           </span>
           <span className="font-semibold text-blue-600">
-            {wheelZoomMode === 'zoom' ? 'Zoom Direto' : 'Pan (Ctrl p/ Zoom)'}
+            {wheelZoomMode === 'zoom' ? 'Zoom Direto' : 'Pan / Rolar Tela'}
           </span>
         </button>
       </div>

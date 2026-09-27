@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Sparkles,
   MousePointer,
+  Hand,
   LayoutGrid,
   Square,
   StickyNote,
@@ -49,6 +50,7 @@ import { ShapeType } from '../../types/miro';
 
 export type CanvasTool =
   | 'select'
+  | 'pan'
   | 'sticky'
   | 'shape'
   | 'text'
@@ -301,7 +303,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
 
       {/* Main Tools Container */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200/90 p-1 flex flex-col gap-0.5 shrink-0 my-auto">
-        {/* Select / Hand (V) */}
+        {/* Select (V) */}
         <button
           onClick={() => onSelectTool('select')}
           className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors group relative cursor-pointer ${
@@ -309,9 +311,22 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
               ? 'bg-blue-50 text-blue-600'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
-          title="Selecionar / Mover (V)"
+          title="Selecionar / Mover Elementos (V)"
         >
           <MousePointer className="w-4 h-4" />
+        </button>
+
+        {/* Pan / Hand Tool (H / Espaço) */}
+        <button
+          onClick={() => onSelectTool('pan')}
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors group relative cursor-pointer ${
+            activeTool === 'pan'
+              ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="Mãozinha de Pan / Mover Tela Livremente (H ou segurar Espaço)"
+        >
+          <Hand className="w-4 h-4" />
         </button>
 
         {/* Sticky Note Tool (N) */}

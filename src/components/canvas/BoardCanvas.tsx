@@ -69,8 +69,9 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     board.viewState ? { x: board.viewState.panX, y: board.viewState.panY } : { x: 50, y: 50 }
   );
   const [zoom, setZoom] = useState(board.viewState ? board.viewState.zoom : 0.85);
-  const [wheelZoomMode, setWheelZoomMode] = useState<'zoom' | 'pan'>('zoom');
+  const [wheelZoomMode, setWheelZoomMode] = useState<'zoom' | 'pan'>('pan');
   const [isZoomMenuOpen, setIsZoomMenuOpen] = useState(false);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
 
   // Active Tool
   const [activeTool, setActiveTool] = useState<CanvasTool>('select');
@@ -404,6 +405,12 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     setPan({ x: Math.round(newPanX), y: Math.round(newPanY) });
   };
 
+  // Directional Pan helper
+  const handlePanBy = (dx: number, dy: number) => {
+    playSound.click();
+    setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+  };
+
   // Focal-Point Mouse Wheel Zoom & Pan
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -429,10 +436,19 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
         setZoom(newZoom);
       }
     } else {
-      setPan((prev) => ({
-        x: prev.x - e.deltaX * 0.85,
-        y: prev.y - e.deltaY * 0.85,
-      }));
+      // Natural two-axis Pan (smooth trackpad & mouse wheel)
+      // Scrolling down (deltaY > 0) moves view down so you see elements below!
+      if (e.shiftKey) {
+        setPan((prev) => ({
+          x: prev.x - e.deltaY * 0.9,
+          y: prev.y,
+        }));
+      } else {
+        setPan((prev) => ({
+          x: prev.x - (e.deltaX ? e.deltaX * 0.9 : 0),
+          y: prev.y - e.deltaY * 0.9,
+        }));
+      }
     }
   };
 
@@ -463,10 +479,54 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     );
   };
 
-  // Dynamic Keyboard Shortcuts Handler (Fully customizable)
+  // Spacebar and Global Keyboard Shortcuts Handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          (activeEl as HTMLElement).isContentEditable);
+
+      if (isInput) return;
+
+      // Spacebar for hand / pan mode
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        setIsSpacePressed(true);
+        return;
+      }
+
+      // Arrow Keys: Nudge selected elements or Pan viewport
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        const step = e.shiftKey ? 20 : 4;
+        const panStep = e.shiftKey ? 150 : 50;
+
+        if (selectedElementIds.length > 0) {
+          let dx = 0;
+          let dy = 0;
+          if (e.key === 'ArrowUp') dy = -step;
+          if (e.key === 'ArrowDown') dy = step;
+          if (e.key === 'ArrowLeft') dx = -step;
+          if (e.key === 'ArrowRight') dx = step;
+
+          setElements((prev) =>
+            prev.map((el) => {
+              if (selectedElementIds.includes(el.id) && !el.style.isLocked) {
+                return { ...el, x: snapVal(el.x + dx), y: snapVal(el.y + dy) };
+              }
+              return el;
+            })
+          );
+        } else {
+          // Pan canvas viewport
+          if (e.key === 'ArrowUp') setPan((p) => ({ ...p, y: p.y + panStep }));
+          if (e.key === 'ArrowDown') setPan((p) => ({ ...p, y: p.y - panStep }));
+          if (e.key === 'ArrowLeft') setPan((p) => ({ ...p, x: p.x + panStep }));
+          if (e.key === 'ArrowRight') setPan((p) => ({ ...p, x: p.x - panStep }));
+        }
         return;
       }
 
@@ -509,6 +569,11 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
       if (matchShortcut('tool_select', e)) {
         e.preventDefault();
         setActiveTool('select');
+        return;
+      }
+      if (matchShortcut('tool_pan', e) || e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setActiveTool('pan');
         return;
       }
       if (matchShortcut('tool_sticky', e)) {
@@ -634,7 +699,14 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     // Global Paste Event Listener (supports pasting image files, URLs, elements, and text)
     const handleGlobalPaste = (e: ClipboardEvent) => {
@@ -752,6 +824,7 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('paste', handleGlobalPaste);
     };
   }, [
@@ -764,13 +837,249 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     gridSnapSize,
   ]);
 
+  // Window-level Mouse Move and Mouse Up Listeners for Flawless Dragging & Panning
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      lastPointerPosRef.current = { x: e.clientX, y: e.clientY };
+
+      // 1. Panning Canvas
+      if (isPanning) {
+        setPan({
+          x: e.clientX - panStart.x,
+          y: e.clientY - panStart.y,
+        });
+        return;
+      }
+
+      // 2. Freehand Drawing
+      if (isDrawing) {
+        const world = screenToWorld(e.clientX, e.clientY);
+        setCurrentStrokePoints((prev) => [...prev, world]);
+        return;
+      }
+
+      // 3. Marquee Selection
+      if (isMarqueeSelecting) {
+        const world = screenToWorld(e.clientX, e.clientY);
+        setMarqueeCurrent(world);
+
+        const selMinX = Math.min(marqueeStart.x, world.x);
+        const selMaxX = Math.max(marqueeStart.x, world.x);
+        const selMinY = Math.min(marqueeStart.y, world.y);
+        const selMaxY = Math.max(marqueeStart.y, world.y);
+
+        const insideIds = elements
+          .filter((el) => {
+            const elRight = el.x + el.width;
+            const elBottom = el.y + el.height;
+            return el.x < selMaxX && elRight > selMinX && el.y < selMaxY && elBottom > selMinY;
+          })
+          .map((el) => el.id);
+
+        setSelectedElementIds(insideIds);
+        return;
+      }
+
+      // 4. Resizing Element
+      if (isResizing && selectedElementIds.length > 0) {
+        const dx = (e.clientX - resizeStartPos.x) / zoom;
+        const dy = (e.clientY - resizeStartPos.y) / zoom;
+
+        if (isResizing === 'rotate' && selectedElementIds.length === 1) {
+          const id = selectedElementIds[0];
+          const initial = resizeInitialBounds[id];
+          if (initial) {
+            const world = screenToWorld(e.clientX, e.clientY);
+            const centerX = initial.x + initial.width / 2;
+            const centerY = initial.y + initial.height / 2;
+            const radians = Math.atan2(world.y - centerY, world.x - centerX);
+            const degrees = Math.round(radians * (180 / Math.PI) + 90);
+            setElements((prev) =>
+              prev.map((el) => (el.id === id ? { ...el, rotation: degrees } : el))
+            );
+          }
+          return;
+        }
+
+        setElements((prev) =>
+          prev.map((el) => {
+            if (!selectedElementIds.includes(el.id) || el.style.isLocked) return el;
+            const initial = resizeInitialBounds[el.id];
+            if (!initial) return el;
+
+            let newWidth = initial.width;
+            let newHeight = initial.height;
+            let newX = initial.x;
+            let newY = initial.y;
+
+            if (isResizing === 'se') {
+              newWidth = Math.max(40, initial.width + dx);
+              newHeight = Math.max(40, initial.height + dy);
+            } else if (isResizing === 'sw') {
+              newWidth = Math.max(40, initial.width - dx);
+              newHeight = Math.max(40, initial.height + dy);
+              newX = initial.x + (initial.width - newWidth);
+            } else if (isResizing === 'ne') {
+              newWidth = Math.max(40, initial.width + dx);
+              newHeight = Math.max(40, initial.height - dy);
+              newY = initial.y + (initial.height - newHeight);
+            } else if (isResizing === 'nw') {
+              newWidth = Math.max(40, initial.width - dx);
+              newHeight = Math.max(40, initial.height - dy);
+              newX = initial.x + (initial.width - newWidth);
+              newY = initial.y + (initial.height - newHeight);
+            } else if (isResizing === 'e') {
+              newWidth = Math.max(40, initial.width + dx);
+            } else if (isResizing === 'w') {
+              newWidth = Math.max(40, initial.width - dx);
+              newX = initial.x + (initial.width - newWidth);
+            } else if (isResizing === 's') {
+              newHeight = Math.max(40, initial.height + dy);
+            } else if (isResizing === 'n') {
+              newHeight = Math.max(40, initial.height - dy);
+              newY = initial.y + (initial.height - newHeight);
+            }
+
+            return {
+              ...el,
+              width: snapVal(newWidth),
+              height: snapVal(newHeight),
+              x: snapVal(newX),
+              y: snapVal(newY),
+            };
+          })
+        );
+        return;
+      }
+
+      // 5. Dragging Elements (with auto-pan near screen boundaries so you can move down endlessly!)
+      if (isDraggingElements && selectedElementIds.length > 0) {
+        const dx = (e.clientX - dragStartPos.x) / zoom;
+        const dy = (e.clientY - dragStartPos.y) / zoom;
+
+        // Auto-pan viewport if dragging near edge (e.g. moving down)
+        const edgeMargin = 60;
+        const speed = 12;
+        if (e.clientY > window.innerHeight - edgeMargin) {
+          setPan((p) => ({ ...p, y: p.y - speed }));
+        } else if (e.clientY < edgeMargin) {
+          setPan((p) => ({ ...p, y: p.y + speed }));
+        }
+        if (e.clientX > window.innerWidth - edgeMargin) {
+          setPan((p) => ({ ...p, x: p.x - speed }));
+        } else if (e.clientX < edgeMargin) {
+          setPan((p) => ({ ...p, x: p.x + speed }));
+        }
+
+        setElements((prev) =>
+          prev.map((el) => {
+            if (selectedElementIds.includes(el.id) && !el.style.isLocked) {
+              const initial = dragInitialElements[el.id];
+              if (!initial) return el;
+              return {
+                ...el,
+                x: snapVal(initial.x + dx),
+                y: snapVal(initial.y + dy),
+              };
+            }
+            return el;
+          })
+        );
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      if (isPanning) {
+        setIsPanning(false);
+      }
+
+      if (isMarqueeSelecting) {
+        setIsMarqueeSelecting(false);
+      }
+
+      if (isResizing) {
+        setIsResizing(null);
+        pushHistory(elements, frames);
+      }
+
+      if (isDrawing && currentStrokePoints.length > 1) {
+        setIsDrawing(false);
+        playSound.click();
+        const minX = Math.min(...currentStrokePoints.map((p) => p.x));
+        const minY = Math.min(...currentStrokePoints.map((p) => p.y));
+        const maxX = Math.max(...currentStrokePoints.map((p) => p.x));
+        const maxY = Math.max(...currentStrokePoints.map((p) => p.y));
+
+        const drawElement: CanvasElement = {
+          id: `draw-${Date.now()}`,
+          type: 'draw',
+          x: minX,
+          y: minY,
+          width: Math.max(20, maxX - minX),
+          height: Math.max(20, maxY - minY),
+          zIndex: 10,
+          content: '',
+          style: {
+            points: currentStrokePoints,
+            color: activeTool === 'highlighter' ? '#fde047' : '#3b82f6',
+            strokeWidth: activeTool === 'highlighter' ? 12 : 3,
+            opacity: activeTool === 'highlighter' ? 0.45 : 1,
+          },
+          createdAt: Date.now(),
+        };
+
+        const updated = [...elements, drawElement];
+        setElements(updated);
+        pushHistory(updated, frames);
+        setCurrentStrokePoints([]);
+      }
+
+      if (isDraggingElements) {
+        setIsDraggingElements(false);
+        pushHistory(elements, frames);
+      }
+    };
+
+    if (isPanning || isDrawing || isMarqueeSelecting || isResizing || isDraggingElements) {
+      window.addEventListener('mousemove', handleGlobalMouseMove);
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [
+    isPanning,
+    panStart,
+    isDrawing,
+    currentStrokePoints,
+    isMarqueeSelecting,
+    marqueeStart,
+    isResizing,
+    resizeStartPos,
+    resizeInitialBounds,
+    isDraggingElements,
+    dragStartPos,
+    dragInitialElements,
+    selectedElementIds,
+    zoom,
+    pan,
+    elements,
+    frames,
+    activeTool,
+  ]);
+
   // Start Resizing Element with Mouse Handle
   const handleStartResize = (e: React.MouseEvent, handle: ResizeHandleType) => {
     e.stopPropagation();
     setIsResizing(handle);
     setResizeStartPos({ x: e.clientX, y: e.clientY });
 
-    const initialBounds: Record<string, { x: number; y: number; width: number; height: number; rotation: number }> = {};
+    const initialBounds: Record<
+      string,
+      { x: number; y: number; width: number; height: number; rotation: number }
+    > = {};
     elements.forEach((el) => {
       if (selectedElementIds.includes(el.id) && !el.style.isLocked) {
         initialBounds[el.id] = {
@@ -789,7 +1098,14 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     setIsZoomMenuOpen(false);
 
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    // Pan with Hand tool, Space pressed, Middle Click, Right Click or Alt+Click
+    if (
+      activeTool === 'pan' ||
+      isSpacePressed ||
+      e.button === 1 ||
+      (e.button === 0 && e.altKey) ||
+      e.button === 2
+    ) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
       return;
@@ -854,185 +1170,45 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     }
   };
 
-  // Canvas Mouse Move
-  const handleCanvasMouseMove = (e: React.MouseEvent) => {
-    if (isPanning) {
-      setPan({
-        x: e.clientX - panStart.x,
-        y: e.clientY - panStart.y,
-      });
-      return;
-    }
+  // Add Brainstorming 4-Pack of Colored Stickies
+  const handleAddBrainstormPack = () => {
+    playSound.pop();
+    const world = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+    const packColors = ['#fef08a', '#bbf7d0', '#bae6fd', '#fbcfe8'];
+    const packTitles = [
+      '💡 Ideia Principal & Visão',
+      '🎯 Objetivos & Metas Q1',
+      '⚡ Desafios & Soluções',
+      '🚀 Próximos Passos de Ação',
+    ];
 
-    if (isDrawing) {
-      const world = screenToWorld(e.clientX, e.clientY);
-      setCurrentStrokePoints((prev) => [...prev, world]);
-      return;
-    }
-
-    if (isMarqueeSelecting) {
-      const world = screenToWorld(e.clientX, e.clientY);
-      setMarqueeCurrent(world);
-
-      const selMinX = Math.min(marqueeStart.x, world.x);
-      const selMaxX = Math.max(marqueeStart.x, world.x);
-      const selMinY = Math.min(marqueeStart.y, world.y);
-      const selMaxY = Math.max(marqueeStart.y, world.y);
-
-      const insideIds = elements
-        .filter((el) => {
-          const elRight = el.x + el.width;
-          const elBottom = el.y + el.height;
-          return el.x < selMaxX && elRight > selMinX && el.y < selMaxY && elBottom > selMinY;
-        })
-        .map((el) => el.id);
-
-      setSelectedElementIds(insideIds);
-      return;
-    }
-
-    if (isResizing && selectedElementIds.length > 0) {
-      const dx = (e.clientX - resizeStartPos.x) / zoom;
-      const dy = (e.clientY - resizeStartPos.y) / zoom;
-
-      if (isResizing === 'rotate' && selectedElementIds.length === 1) {
-        const id = selectedElementIds[0];
-        const initial = resizeInitialBounds[id];
-        if (initial) {
-          const world = screenToWorld(e.clientX, e.clientY);
-          const centerX = initial.x + initial.width / 2;
-          const centerY = initial.y + initial.height / 2;
-          const radians = Math.atan2(world.y - centerY, world.x - centerX);
-          const degrees = Math.round((radians * (180 / Math.PI)) + 90);
-          setElements((prev) =>
-            prev.map((el) => (el.id === id ? { ...el, rotation: degrees } : el))
-          );
-        }
-        return;
-      }
-
-      setElements((prev) =>
-        prev.map((el) => {
-          if (!selectedElementIds.includes(el.id) || el.style.isLocked) return el;
-          const initial = resizeInitialBounds[el.id];
-          if (!initial) return el;
-
-          let newWidth = initial.width;
-          let newHeight = initial.height;
-          let newX = initial.x;
-          let newY = initial.y;
-
-          if (isResizing === 'se') {
-            newWidth = Math.max(40, initial.width + dx);
-            newHeight = Math.max(40, initial.height + dy);
-          } else if (isResizing === 'sw') {
-            newWidth = Math.max(40, initial.width - dx);
-            newHeight = Math.max(40, initial.height + dy);
-            newX = initial.x + (initial.width - newWidth);
-          } else if (isResizing === 'ne') {
-            newWidth = Math.max(40, initial.width + dx);
-            newHeight = Math.max(40, initial.height - dy);
-            newY = initial.y + (initial.height - newHeight);
-          } else if (isResizing === 'nw') {
-            newWidth = Math.max(40, initial.width - dx);
-            newHeight = Math.max(40, initial.height - dy);
-            newX = initial.x + (initial.width - newWidth);
-            newY = initial.y + (initial.height - newHeight);
-          } else if (isResizing === 'e') {
-            newWidth = Math.max(40, initial.width + dx);
-          } else if (isResizing === 'w') {
-            newWidth = Math.max(40, initial.width - dx);
-            newX = initial.x + (initial.width - newWidth);
-          } else if (isResizing === 's') {
-            newHeight = Math.max(40, initial.height + dy);
-          } else if (isResizing === 'n') {
-            newHeight = Math.max(40, initial.height - dy);
-            newY = initial.y + (initial.height - newHeight);
-          }
-
-          return {
-            ...el,
-            width: snapVal(newWidth),
-            height: snapVal(newHeight),
-            x: snapVal(newX),
-            y: snapVal(newY),
-          };
-        })
-      );
-      return;
-    }
-
-    if (isDraggingElements && selectedElementIds.length > 0) {
-      const dx = (e.clientX - dragStartPos.x) / zoom;
-      const dy = (e.clientY - dragStartPos.y) / zoom;
-
-      setElements((prev) =>
-        prev.map((el) => {
-          if (selectedElementIds.includes(el.id) && !el.style.isLocked) {
-            const initial = dragInitialElements[el.id];
-            if (!initial) return el;
-            return {
-              ...el,
-              x: snapVal(initial.x + dx),
-              y: snapVal(initial.y + dy),
-            };
-          }
-          return el;
-        })
-      );
-    }
-  };
-
-  // Canvas Mouse Up
-  const handleCanvasMouseUp = () => {
-    setIsPanning(false);
-
-    if (isMarqueeSelecting) {
-      setIsMarqueeSelecting(false);
-    }
-
-    if (isResizing) {
-      setIsResizing(null);
-      pushHistory(elements, frames);
-    }
-
-    if (isDrawing && currentStrokePoints.length > 1) {
-      setIsDrawing(false);
-      playSound.click();
-      const minX = Math.min(...currentStrokePoints.map((p) => p.x));
-      const minY = Math.min(...currentStrokePoints.map((p) => p.y));
-      const maxX = Math.max(...currentStrokePoints.map((p) => p.x));
-      const maxY = Math.max(...currentStrokePoints.map((p) => p.y));
-
-      const drawElement: CanvasElement = {
-        id: `draw-${Date.now()}`,
-        type: 'draw',
-        x: minX,
-        y: minY,
-        width: Math.max(20, maxX - minX),
-        height: Math.max(20, maxY - minY),
-        zIndex: 10,
-        content: '',
+    const newStickies: CanvasElement[] = packColors.map((color, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      return {
+        id: `sticky-${Date.now()}-${idx}`,
+        type: 'sticky',
+        x: snapVal(world.x - 220 + col * 230),
+        y: snapVal(world.y - 190 + row * 200),
+        width: 210,
+        height: 180,
+        zIndex: elements.length + idx + 2,
+        content: packTitles[idx],
         style: {
-          points: currentStrokePoints,
-          color: activeTool === 'highlighter' ? '#fde047' : '#3b82f6',
-          strokeWidth: activeTool === 'highlighter' ? 12 : 3,
-          opacity: activeTool === 'highlighter' ? 0.45 : 1,
+          backgroundColor: color,
+          color: '#1e293b',
+          fontSize: 14,
+          author: 'G2 midias',
         },
-        createdAt: Date.now(),
+        createdAt: Date.now() + idx,
       };
+    });
 
-      const updated = [...elements, drawElement];
-      setElements(updated);
-      pushHistory(updated, frames);
-      setCurrentStrokePoints([]);
-      return;
-    }
-
-    if (isDraggingElements) {
-      setIsDraggingElements(false);
-      pushHistory(elements, frames);
-    }
+    const updated = [...elements, ...newStickies];
+    setElements(updated);
+    setSelectedElementIds(newStickies.map((s) => s.id));
+    pushHistory(updated, frames);
+    showToast('Pack de 4 Notas criado!', '💡');
   };
 
   // Add Sticky Note Helper
@@ -1357,6 +1533,13 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
   const handleElementMouseDown = (e: React.MouseEvent, elementId: string) => {
     e.stopPropagation();
 
+    // If using Hand tool or space pressed or middle click, pan canvas instead of dragging element
+    if (activeTool === 'pan' || isSpacePressed || e.button === 1) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      return;
+    }
+
     const targetEl = elements.find((el) => el.id === elementId);
     if (targetEl?.style.isLocked) {
       playSound.lock();
@@ -1370,6 +1553,32 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     if (!selectedElementIds.includes(elementId)) {
       nextSelected = [elementId];
       setSelectedElementIds([elementId]);
+    }
+
+    // Alt + Drag: Instantly clone/duplicate selected elements on drag start
+    if (e.altKey) {
+      const duplicated: CanvasElement[] = [];
+      const newIds: string[] = [];
+      elements.forEach((el) => {
+        if (nextSelected.includes(el.id)) {
+          const newId = `${el.type}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+          newIds.push(newId);
+          duplicated.push({
+            ...el,
+            id: newId,
+            x: snapVal(el.x + 10),
+            y: snapVal(el.y + 10),
+            style: { ...el.style, isLocked: false },
+            createdAt: Date.now(),
+          });
+        }
+      });
+      const updated = [...elements, ...duplicated];
+      setElements(updated);
+      setSelectedElementIds(newIds);
+      nextSelected = newIds;
+      pushHistory(updated, frames);
+      showToast('Elemento(s) duplicado(s) via Alt+Arrastar!', '✨');
     }
 
     setIsDraggingElements(true);
@@ -1496,10 +1705,54 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     pushHistory(updated, frames);
   };
 
-  // Align elements helper
-  const handleAlign = (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
+  // Align & Distribute elements helper
+  const handleAlign = (
+    alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distribute-h' | 'distribute-v'
+  ) => {
     if (selectedElements.length < 2) return;
     playSound.click();
+
+    if (alignment === 'distribute-h' && selectedElements.length > 2) {
+      const sorted = [...selectedElements].sort((a, b) => a.x - b.x);
+      const minX = sorted[0].x;
+      const maxX = sorted[sorted.length - 1].x + sorted[sorted.length - 1].width;
+      const totalWidths = sorted.reduce((sum, el) => sum + el.width, 0);
+      const remainingGap = Math.max(0, (maxX - minX - totalWidths) / (sorted.length - 1));
+      let currentX = minX;
+      const posMap: Record<string, number> = {};
+      sorted.forEach((el) => {
+        posMap[el.id] = snapVal(currentX);
+        currentX += el.width + remainingGap;
+      });
+      const updated = elements.map((el) =>
+        posMap[el.id] !== undefined ? { ...el, x: posMap[el.id] } : el
+      );
+      setElements(updated);
+      pushHistory(updated, frames);
+      showToast('Elementos distribuídos horizontalmente!', '📐');
+      return;
+    }
+
+    if (alignment === 'distribute-v' && selectedElements.length > 2) {
+      const sorted = [...selectedElements].sort((a, b) => a.y - b.y);
+      const minY = sorted[0].y;
+      const maxY = sorted[sorted.length - 1].y + sorted[sorted.length - 1].height;
+      const totalHeights = sorted.reduce((sum, el) => sum + el.height, 0);
+      const remainingGap = Math.max(0, (maxY - minY - totalHeights) / (sorted.length - 1));
+      let currentY = minY;
+      const posMap: Record<string, number> = {};
+      sorted.forEach((el) => {
+        posMap[el.id] = snapVal(currentY);
+        currentY += el.height + remainingGap;
+      });
+      const updated = elements.map((el) =>
+        posMap[el.id] !== undefined ? { ...el, y: posMap[el.id] } : el
+      );
+      setElements(updated);
+      pushHistory(updated, frames);
+      showToast('Elementos distribuídos verticalmente!', '📐');
+      return;
+    }
 
     const minX = Math.min(...selectedElements.map((el) => el.x));
     const maxX = Math.max(...selectedElements.map((el) => el.x + el.width));
@@ -1526,6 +1779,7 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
 
     setElements(updated);
     pushHistory(updated, frames);
+    showToast('Elementos alinhados com sucesso!', '📐');
   };
 
   // Copy Selection to internal clipboard and system clipboard
@@ -1811,7 +2065,18 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     setIsExportModalOpen(false);
   };
 
-  // Background CSS class calculator
+  // Background and Cursor CSS class calculator
+  const getCursorClass = () => {
+    if (isPanning) return 'cursor-grabbing';
+    if (isSpacePressed || activeTool === 'pan') return 'cursor-grab';
+    if (activeTool === 'pen' || activeTool === 'highlighter') return 'cursor-crosshair';
+    if (activeTool === 'text') return 'cursor-text';
+    if (activeTool === 'connector') return 'cursor-crosshair';
+    if (activeTool === 'comment') return 'cursor-pointer';
+    if (activeTool === 'sticky' || activeTool === 'shape' || activeTool === 'frame') return 'cursor-crosshair';
+    return 'cursor-default';
+  };
+
   const getCanvasBgClass = () => {
     switch (canvasBgStyle) {
       case 'dots':
@@ -1856,10 +2121,8 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
       <div
         ref={canvasRef}
         onMouseDown={handleCanvasMouseDown}
-        onMouseMove={handleCanvasMouseMove}
-        onMouseUp={handleCanvasMouseUp}
         onWheel={handleWheel}
-        className={`flex-1 relative overflow-hidden cursor-default ${getCanvasBgClass()}`}
+        className={`flex-1 relative overflow-hidden select-none ${getCursorClass()} ${getCanvasBgClass()}`}
       >
         {/* Transform Container with Pan & Zoom */}
         <div
@@ -2379,6 +2642,7 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
         onResetZoom={resetZoom}
         wheelZoomMode={wheelZoomMode}
         onToggleWheelMode={() => setWheelZoomMode((prev) => (prev === 'zoom' ? 'pan' : 'zoom'))}
+        onPanBy={handlePanBy}
       />
 
       {/* Command Palette (Spotlight Ctrl+K) */}

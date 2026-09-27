@@ -7,6 +7,9 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignJustify,
+  ArrowUpToLine,
+  ArrowDownToLine,
   Bold,
   ChevronDown,
   Scale,
@@ -14,13 +17,16 @@ import {
   Unlock,
   Pipette,
   Check,
+  Type,
+  Split,
+  Palette,
 } from 'lucide-react';
 
 interface SelectionToolbarProps {
   selectedElements: CanvasElement[];
   onUpdateStyle: (styleUpdates: Partial<CanvasElement['style']>) => void;
   onUpdateSize?: (width: number, height: number) => void;
-  onAlign?: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
+  onAlign?: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distribute-h' | 'distribute-v') => void;
   onCopy?: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -44,6 +50,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
   const [showSizePresets, setShowSizePresets] = useState(false);
+  const [showAlignMenu, setShowAlignMenu] = useState(false);
   const [customHex, setCustomHex] = useState('');
   const [justCopied, setJustCopied] = useState(false);
 
@@ -119,7 +126,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
         </button>
 
         {showColorPicker && (
-          <div className="absolute left-0 bottom-full mb-2 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2.5 z-50 w-44">
+          <div className="absolute left-0 bottom-full mb-2 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2.5 z-50 w-48">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
               Paleta de Cores
             </span>
@@ -241,25 +248,92 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
         <Bold className="w-3.5 h-3.5" />
       </button>
 
-      {/* Multi-element Align Buttons */}
-      {selectedElements.length > 1 && onAlign && (
-        <>
-          <div className="h-4 w-px bg-slate-200" />
+      {/* Alignment / Distribution Menu */}
+      {onAlign && (
+        <div className="relative">
           <button
-            onClick={() => onAlign('left')}
-            className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 hover:text-slate-900 cursor-pointer"
-            title="Alinhar à Esquerda"
+            onClick={() => setShowAlignMenu(!showAlignMenu)}
+            className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 flex items-center gap-0.5 cursor-pointer"
+            title="Alinhamento e Distribuição"
           >
             <AlignLeft className="w-3.5 h-3.5" />
+            <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
           </button>
-          <button
-            onClick={() => onAlign('center')}
-            className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 hover:text-slate-900 cursor-pointer"
-            title="Alinhar ao Centro"
-          >
-            <AlignCenter className="w-3.5 h-3.5" />
-          </button>
-        </>
+
+          {showAlignMenu && (
+            <div className="absolute left-0 bottom-full mb-2 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 w-48 space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 px-2 py-0.5 uppercase tracking-wider block">
+                Alinhar
+              </span>
+              <div className="grid grid-cols-3 gap-1">
+                <button
+                  onClick={() => { onAlign('left'); setShowAlignMenu(false); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-700 text-xs flex justify-center"
+                  title="Alinhar à Esquerda"
+                >
+                  <AlignLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => { onAlign('center'); setShowAlignMenu(false); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-700 text-xs flex justify-center"
+                  title="Alinhar ao Centro"
+                >
+                  <AlignCenter className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => { onAlign('right'); setShowAlignMenu(false); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-700 text-xs flex justify-center"
+                  title="Alinhar à Direita"
+                >
+                  <AlignRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1 pt-1 border-t border-slate-100">
+                <button
+                  onClick={() => { onAlign('top'); setShowAlignMenu(false); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-700 text-xs flex justify-center"
+                  title="Alinhar ao Topo"
+                >
+                  <ArrowUpToLine className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => { onAlign('middle'); setShowAlignMenu(false); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-700 text-xs flex justify-center"
+                  title="Alinhar ao Meio"
+                >
+                  <AlignJustify className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => { onAlign('bottom'); setShowAlignMenu(false); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-700 text-xs flex justify-center"
+                  title="Alinhar à Base"
+                >
+                  <ArrowDownToLine className="w-4 h-4" />
+                </button>
+              </div>
+
+              {selectedElements.length > 2 && (
+                <div className="pt-1 border-t border-slate-100 space-y-1">
+                  <button
+                    onClick={() => { onAlign('distribute-h'); setShowAlignMenu(false); }}
+                    className="w-full text-left px-2 py-1 text-[11px] rounded hover:bg-slate-100 text-slate-700 flex items-center justify-between"
+                  >
+                    <span>Distribuir Horizontal</span>
+                    <Split className="w-3 h-3 text-slate-400 rotate-90" />
+                  </button>
+                  <button
+                    onClick={() => { onAlign('distribute-v'); setShowAlignMenu(false); }}
+                    className="w-full text-left px-2 py-1 text-[11px] rounded hover:bg-slate-100 text-slate-700 flex items-center justify-between"
+                  >
+                    <span>Distribuir Vertical</span>
+                    <Split className="w-3 h-3 text-slate-400" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="h-4 w-px bg-slate-200" />

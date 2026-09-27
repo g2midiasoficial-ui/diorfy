@@ -20,7 +20,8 @@ export type CustomShortcutMap = Record<string, {
 
 export const DEFAULT_SHORTCUTS: ShortcutAction[] = [
   // 1. Tools
-  { id: 'tool_select', label: 'Ferramenta Seleção / Ponteiro', category: 'tools', description: 'Ativa o modo de seleção de elementos', defaultKey: 'v' },
+  { id: 'tool_select', label: 'Ferramenta Seleção / Ponteiro', category: 'tools', description: 'Ativa o modo de seleção de elementos (V)', defaultKey: 'v' },
+  { id: 'tool_pan', label: 'Ferramenta Mão / Panorâmica (Mãozinha)', category: 'tools', description: 'Move e navega livremente pelo quadro em todas as direções (H / Espaço)', defaultKey: 'h' },
   { id: 'tool_sticky', label: 'Criar Nota Adesiva (Post-it)', category: 'tools', description: 'Insere uma nota adesiva amarela', defaultKey: 'n' },
   { id: 'tool_shape', label: 'Criar Forma Geométrica', category: 'tools', description: 'Insere um retângulo ou forma', defaultKey: 's' },
   { id: 'tool_text', label: 'Criar Caixa de Texto', category: 'tools', description: 'Insere bloco de texto editável', defaultKey: 't' },
