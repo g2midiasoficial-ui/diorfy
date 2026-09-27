@@ -1,0 +1,6 @@
+{
+  "name": "Diorfy - Workspace Visual & Colaborativo",
+  "description": "Plataforma completa de lousa virtual colaborativa Diorfy com canvas infinito, notas adesivas, diagramas, fluxogramas, templates, IA integrada e apresentação.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
