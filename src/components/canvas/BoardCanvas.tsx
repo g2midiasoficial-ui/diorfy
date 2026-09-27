@@ -1981,6 +1981,35 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
     pushHistory(updated, frames);
   };
 
+  // Convert selected elements on canvas into a Slide frame and open Slide Motion Studio
+  const handleConvertSelectionToSlide = () => {
+    if (selectedElements.length === 0) return;
+    playSound.success();
+    const minX = Math.min(...selectedElements.map((el) => el.x));
+    const minY = Math.min(...selectedElements.map((el) => el.y));
+    const maxX = Math.max(...selectedElements.map((el) => el.x + el.width));
+    const maxY = Math.max(...selectedElements.map((el) => el.y + el.height));
+
+    const padding = 40;
+    const newFrame: CanvasFrame = {
+      id: `frame-${Date.now()}`,
+      title: `Slide: ${selectedElements[0].content?.substring(0, 24) || 'Seção Apresentação'}`,
+      x: minX - padding,
+      y: minY - padding - 40,
+      width: Math.max(500, maxX - minX + padding * 2),
+      height: Math.max(350, maxY - minY + padding * 2 + 40),
+      backgroundColor: '#ffffff',
+      borderColor: '#8b5cf6',
+      zIndex: 0,
+    };
+
+    const updatedFrames = [...frames, newFrame];
+    setFrames(updatedFrames);
+    pushHistory(elements, updatedFrames);
+    setIsSlideMotionOpen(true);
+    showToast('Seleção convertida em Slide!', '🎬');
+  };
+
   // Drag & Drop Image Files Directly on Canvas
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -2095,7 +2124,7 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
 
   return (
     <div className="relative w-screen h-screen overflow-hidden flex flex-col bg-[#f0f2f5] select-none">
-      {/* Diorfy Canvas Top Navigation Bar */}
+      {/* Diorfy Canvas Top Navigation Bar with AI & Slide Generator Suite */}
       <CanvasTopNav
         board={board}
         onBackToDashboard={onBackToDashboard}
@@ -2115,6 +2144,11 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         isSoundOn={isSoundOn}
         onToggleSound={handleToggleSound}
+        onOpenAI={() => setIsAIOpen(true)}
+        onOpenSlideMotion={() => setIsSlideMotionOpen(true)}
+        onOpenNanoBanana={() => setIsNanoBananaOpen(true)}
+        onOpenMindmapStudio={() => setIsMindmapStudioOpen(true)}
+        onOpenAiAgent={() => setIsAiAgentOpen(true)}
       />
 
       {/* Main Canvas Infinite Workspace Stage */}
@@ -2390,6 +2424,7 @@ export const BoardCanvas: React.FC<BoardCanvasProps> = ({
               onBringForward={handleBringForward}
               onSendBackward={handleSendBackward}
               onToggleLock={handleToggleLockSelection}
+              onConvertToSlide={handleConvertSelectionToSlide}
             />
           )}
 

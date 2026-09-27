@@ -23,6 +23,11 @@ import {
   Volume2,
   VolumeX,
   Keyboard,
+  Film,
+  Bot,
+  Network,
+  Wand2,
+  Presentation,
 } from 'lucide-react';
 import { BoardItem } from '../../types/miro';
 
@@ -47,6 +52,12 @@ interface CanvasTopNavProps {
   onToggleSound?: () => void;
   onToggleTalkTrack?: () => void;
   isTalkTrackActive?: boolean;
+  // Diorfy AI & Studio Triggers in Header
+  onOpenAI?: () => void;
+  onOpenSlideMotion?: () => void;
+  onOpenNanoBanana?: () => void;
+  onOpenMindmapStudio?: () => void;
+  onOpenAiAgent?: () => void;
 }
 
 export const CanvasTopNav: React.FC<CanvasTopNavProps> = ({
@@ -70,10 +81,16 @@ export const CanvasTopNav: React.FC<CanvasTopNavProps> = ({
   onToggleSound,
   onToggleTalkTrack,
   isTalkTrackActive,
+  onOpenAI,
+  onOpenSlideMotion,
+  onOpenNanoBanana,
+  onOpenMindmapStudio,
+  onOpenAiAgent,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(board.title);
   const [showMenu, setShowMenu] = useState(false);
+  const [showAiDropdown, setShowAiDropdown] = useState(false);
 
   const handleSaveTitle = () => {
     if (titleInput.trim()) {
@@ -199,12 +216,151 @@ export const CanvasTopNav: React.FC<CanvasTopNavProps> = ({
             title="Buscar ações e ferramentas (Ctrl+K)"
           >
             <Search className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-500">Buscar ferramentas...</span>
+            <span className="text-slate-500">Buscar...</span>
             <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono font-bold text-slate-500 shadow-2xs">
               Ctrl+K
             </kbd>
           </button>
         )}
+      </div>
+
+      {/* Center Zone: Prominent Diorfy AI Suite & Slide Generator */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* 🎬 GERADOR DE SLIDES DO QUADRO */}
+        {onOpenSlideMotion && (
+          <button
+            onClick={onOpenSlideMotion}
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer group"
+            title="Gerador de Slides: Transforma tudo o que você fizer no quadro em apresentação de slides interativa!"
+          >
+            <Film className="w-4 h-4 group-hover:rotate-6 transition-transform" />
+            <span className="flex items-center gap-1">
+              <span>Gerador de Slides</span>
+              <span className="hidden lg:inline text-[10px] bg-white/20 px-1.5 py-0.2 rounded-full font-medium">
+                Quadro → Slides
+              </span>
+            </span>
+          </button>
+        )}
+
+        {/* ✨ DIORFY AI SUITE BUTTON (Dropdown) */}
+        <div className="relative">
+          <button
+            onClick={() => setShowAiDropdown(!showAiDropdown)}
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:bg-blue-100/70 border border-blue-200 text-blue-800 text-xs font-bold transition-all cursor-pointer"
+            title="Ferramentas Inteligentes Diorfy AI"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+            <span className="hidden sm:inline">Diorfy AI</span>
+            <ChevronDown className="w-3 h-3 text-blue-600" />
+          </button>
+
+          {showAiDropdown && (
+            <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 text-xs animate-in fade-in">
+              <div className="px-2 py-1 border-b border-slate-100 mb-1 flex items-center justify-between">
+                <span className="font-bold text-slate-900">Suíte Diorfy AI</span>
+                <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.2 rounded-full">
+                  Inteligência Visual
+                </span>
+              </div>
+
+              {/* Gerador de Slides */}
+              {onOpenSlideMotion && (
+                <button
+                  onClick={() => {
+                    setShowAiDropdown(false);
+                    onOpenSlideMotion();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-purple-50 text-purple-900 text-left font-semibold transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                    <Film className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Gerador de Slides</p>
+                    <p className="text-[10px] text-slate-500">Transforma o quadro em apresentação</p>
+                  </div>
+                </button>
+              )}
+
+              {/* Brainstorms & Templates */}
+              {onOpenAI && (
+                <button
+                  onClick={() => {
+                    setShowAiDropdown(false);
+                    onOpenAI();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-blue-50 text-blue-900 text-left font-semibold transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Brainstorm & Templates IA</p>
+                    <p className="text-[10px] text-slate-500">Cria matrizes, notas e roadmaps</p>
+                  </div>
+                </button>
+              )}
+
+              {/* Nano Banana Image Studio */}
+              {onOpenNanoBanana && (
+                <button
+                  onClick={() => {
+                    setShowAiDropdown(false);
+                    onOpenNanoBanana();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-amber-50 text-amber-900 text-left font-semibold transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 text-sm">
+                    🍌
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Nano Banana Imagens</p>
+                    <p className="text-[10px] text-slate-500">Gerador de fotos e ilustrações 3D</p>
+                  </div>
+                </button>
+              )}
+
+              {/* Mindmap Studio */}
+              {onOpenMindmapStudio && (
+                <button
+                  onClick={() => {
+                    setShowAiDropdown(false);
+                    onOpenMindmapStudio();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-cyan-50 text-cyan-900 text-left font-semibold transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center shrink-0">
+                    <Network className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Mapas Mentais</p>
+                    <p className="text-[10px] text-slate-500">Estruturação de ideias e fluxos</p>
+                  </div>
+                </button>
+              )}
+
+              {/* Copilot Agent */}
+              {onOpenAiAgent && (
+                <button
+                  onClick={() => {
+                    setShowAiDropdown(false);
+                    onOpenAiAgent();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-indigo-50 text-indigo-900 text-left font-semibold transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Agente Copilot</p>
+                    <p className="text-[10px] text-slate-500">Assistente interativo de ideação</p>
+                  </div>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right zone: Interactive Widgets, Collaboration, Presentation, Share */}
@@ -282,11 +438,11 @@ export const CanvasTopNav: React.FC<CanvasTopNavProps> = ({
           <span className="hidden lg:inline text-[11px] font-bold ml-1">{collaboratorCount} online</span>
         </button>
 
-        {/* Presentation Button */}
+        {/* Presentation Button (Direct Trigger to Slide Generator Presentation) */}
         <button
           onClick={onStartPresentation}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-bold transition-colors cursor-pointer border border-purple-200"
-          title="Apresentar com Motion Design"
+          title="Apresentar Quadro"
         >
           <Play className="w-3.5 h-3.5 fill-purple-700" />
           <span className="hidden sm:inline">Apresentar</span>

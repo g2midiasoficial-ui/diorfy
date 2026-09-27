@@ -226,7 +226,7 @@ Responda sempre em português brasileiro com clareza, entusiasmo e sugestões pr
   });
 });
 
-// 4. Endpoint: AI Slide Deck Generator
+// 4. Endpoint: AI Slide Deck Generator from Topic or Board Context
 app.post('/api/ai/generate-slides', async (req, res) => {
   const { topic } = req.body;
   const slideTopic = topic || 'Planejamento Estratégico e Inovação';
@@ -248,11 +248,11 @@ Retorne um JSON puro (sem markdown extra) com array de objetos no formato:
     "notes": "Dica de apresentação"
   }
 ]
-Os temas possíveis para "theme" são: "dark", "sunset", "emerald", "cyber", "minimal".
+Os temas possíveis para "theme" são: "dark", "sunset", "emerald", "cyber", "minimal", "purple".
 As transições para "transition" são: "slide", "zoom", "flip", "spring", "fade".`;
 
       const response = await aiClient.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -333,6 +333,68 @@ As transições para "transition" são: "slide", "zoom", "flip", "spring", "fade
   ];
 
   return res.json({ slides: fallbackDeck });
+});
+
+// 5. Endpoint: Transform Board Elements Directly into Slide Deck with AI
+app.post('/api/ai/board-to-slides', async (req, res) => {
+  const { elements, frames, boardTitle } = req.body;
+
+  try {
+    if (aiClient && (elements?.length > 0 || frames?.length > 0)) {
+      const simplifiedContent = {
+        boardTitle: boardTitle || 'Quadro Diorfy',
+        framesCount: frames?.length || 0,
+        frames: (frames || []).map((f: any) => ({ title: f.title, width: f.width, height: f.height })),
+        elements: (elements || []).slice(0, 40).map((el: any) => ({
+          type: el.type,
+          content: el.content || el.text || el.title || '',
+          color: el.color || el.style?.backgroundColor || '',
+        })),
+      };
+
+      const prompt = `Você é um diretor de arte e especialista em apresentações executivas.
+Transforme o conteúdo desta lousa/whiteboard em uma apresentação de slides profissional, coesa e moderna em português brasileiro.
+Conteúdo do quadro:
+${JSON.stringify(simplifiedContent)}
+
+Crie entre 3 e 6 slides estruturados que agrupem as ideias, desafios, soluções e planos de ação expressos no quadro.
+Retorne APENAS um JSON válido no formato:
+[
+  {
+    "id": "slide-1",
+    "title": "Título claro e chamativo",
+    "subtitle": "Subtítulo explicativo contextualizado com o quadro",
+    "badge": "Tag / Categoria",
+    "metric": { "value": "Ex: 100% ou 4x", "label": "Métrica ou destaque" },
+    "points": ["Ponto chave 1", "Ponto chave 2", "Ponto chave 3"],
+    "theme": "dark",
+    "transition": "slide",
+    "notes": "Notas para o apresentador"
+  }
+]
+Temas válidos: "dark", "sunset", "emerald", "cyber", "minimal", "purple".
+Transições válidas: "slide", "zoom", "flip", "spring", "fade".`;
+
+      const response = await aiClient.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
+
+      if (response.text) {
+        const parsed = JSON.parse(response.text.trim());
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return res.json({ slides: parsed });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error in board-to-slides AI generation:', err);
+  }
+
+  return res.json({ error: 'Falha na geração com IA, usando conversão local nativa.' });
 });
 
 // Mount Vite in development

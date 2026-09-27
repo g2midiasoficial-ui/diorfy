@@ -20,6 +20,7 @@ import {
   Type,
   Split,
   Palette,
+  Film,
 } from 'lucide-react';
 
 interface SelectionToolbarProps {
@@ -33,6 +34,7 @@ interface SelectionToolbarProps {
   onBringForward: () => void;
   onSendBackward: () => void;
   onToggleLock?: () => void;
+  onConvertToSlide?: () => void;
 }
 
 export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
@@ -46,6 +48,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   onBringForward,
   onSendBackward,
   onToggleLock,
+  onConvertToSlide,
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
@@ -385,6 +388,18 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
       >
         <Layers className="w-3.5 h-3.5" />
       </button>
+
+      {/* Convert Selection to Slide */}
+      {onConvertToSlide && (
+        <button
+          onClick={onConvertToSlide}
+          className="p-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+          title="Transformar esta seleção em um Slide do Quadro"
+        >
+          <Film className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Virar Slide</span>
+        </button>
+      )}
 
       <div className="h-4 w-px bg-slate-200" />
 
